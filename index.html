@@ -189,7 +189,6 @@ button:disabled{opacity:.35}
 .cal-h .btns{gap:6px}
 .cal-h .btns button{min-width:40px;min-height:40px}
 .cal-h .btns button.txt{padding:0 10px;font-size:13px}
-body{overflow-x:clip}
 @media (max-width:370px){.pair time{width:92px;font-size:14px}.pair{font-size:14px}.big{font-size:64px}.wk{grid-template-columns:90px minmax(0,1fr) 30px;gap:8px}.wk>span:first-child{font-size:13px;white-space:nowrap}}
 /* компактний режим */
 body{font-size:15px;line-height:1.35}
@@ -225,6 +224,11 @@ button{min-height:40px}
 ol.rules li{padding:9px 0}
 .tabs button{min-height:50px;gap:4px;font-size:10.5px}
 .tabs{padding-bottom:env(safe-area-inset-bottom)}
+/* каркас: прокручується лише вміст, панель вкладок нерухома */
+html,body{height:100%;margin:0;overflow:hidden;overscroll-behavior:none}
+body{position:fixed;inset:0;display:flex;flex-direction:column;min-height:0;padding:env(safe-area-inset-top) 0 0}
+#app.wrap{flex:1 1 auto;min-height:0;width:100%;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:12px 12px 20px}
+.tabs{position:static;flex:none}
 </style>
 </head>
 <body class="standalone">
@@ -413,7 +417,7 @@ function vData(){
 }
 
 document.addEventListener("click",e=>{
-  const tb=e.target.closest(".tabs button"); if(tb){tab=tb.dataset.tab;render();window.scrollTo(0,0);return;}
+  const tb=e.target.closest(".tabs button"); if(tb){tab=tb.dataset.tab;render();document.getElementById("app").scrollTop=0;return;}
   const b=e.target.closest("button[data-a]"); if(!b) return;
   const a=b.dataset.a, real=dk(new Date());
   if(a==="prev"){cur=shift(cur,-1);render();}
@@ -428,7 +432,7 @@ document.addEventListener("click",e=>{
   else if(a==="calprev"||a==="calnext"){const f=fromKey(calM); f.setMonth(f.getMonth()+(a==="calnext"?1:-1)); calM=dk(f).slice(0,8)+"01"; render();}
   else if(a==="caltoday"){calM=real.slice(0,8)+"01"; calSel=real; render();}
   else if(a==="calday"){calSel=b.dataset.k; render();}
-  else if(a==="calopen"){cur=calSel; tab="today"; render(); window.scrollTo(0,0);}
+  else if(a==="calopen"){cur=calSel; tab="today"; render(); document.getElementById("app").scrollTop=0;}
   else if(a==="delev"){S.events=(S.events||[]).filter(x=>x.id!==b.dataset.id);save();render();}
   else if(a==="unlock"){unlock();}
   else if(a==="lock"){try{localStorage.removeItem("ryt-k")}catch(x){} location.reload();}
