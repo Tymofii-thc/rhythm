@@ -189,9 +189,42 @@ button:disabled{opacity:.35}
 .cal-h .btns{gap:6px}
 .cal-h .btns button{min-width:40px;min-height:40px}
 .cal-h .btns button.txt{padding:0 10px;font-size:13px}
-html,body{overflow-x:hidden}
-.wrap{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+body{overflow-x:clip}
 @media (max-width:370px){.pair time{width:92px;font-size:14px}.pair{font-size:14px}.big{font-size:64px}.wk{grid-template-columns:90px minmax(0,1fr) 30px;gap:8px}.wk>span:first-child{font-size:13px;white-space:nowrap}}
+/* компактний режим */
+body{font-size:15px;line-height:1.35}
+.wrap{padding:12px 12px calc(60px + env(safe-area-inset-bottom))}
+h1{font-size:22px}
+h2{margin:16px 0 6px;font-size:11px}
+.card{padding:10px 12px;margin-top:8px}
+.nav .btns button{min-width:38px;min-height:38px}
+.pill{margin-top:4px;padding:4px 7px}
+.big{font-size:52px}
+.mid{font-size:26px}
+.bar{margin-top:10px}
+.sw{min-height:36px}
+.item{min-height:0;padding:10px 12px;gap:12px}
+.item input[type=checkbox]{width:24px;height:24px}
+.item.sm{min-height:0;padding:8px 12px}
+.item.sm input[type=checkbox]{width:20px;height:20px}
+.item .d{margin-top:1px}
+.up{margin-top:8px}
+.warn,.good,.ev{padding:8px 12px;margin-top:8px}
+.plain li{padding:8px 0}
+input[type=range]{height:34px}
+textarea{min-height:72px}
+textarea,input[type=text],input[type=password],input[type=date]{min-height:40px;padding:8px 10px}
+button{min-height:40px}
+.cell{height:54px}
+.day{min-height:42px;padding:5px}
+.cal{gap:3px;margin-top:8px}
+.pair{padding:6px 0}
+.evl,.evl label{min-height:40px}
+.soon{padding:8px 0}
+.wk{min-height:38px}
+ol.rules li{padding:9px 0}
+.tabs button{min-height:50px;gap:4px;font-size:10.5px}
+.tabs{padding-bottom:env(safe-area-inset-bottom)}
 </style>
 </head>
 <body class="standalone">
