@@ -77,12 +77,17 @@ textarea::placeholder,input::placeholder{color:var(--mute);opacity:.7}
 ul{margin:4px 0 0;padding-left:20px}
 li{margin:5px 0}
 .hidden{display:none}
+.tabs.off{display:none}
+.evf{display:grid;gap:10px}
+.ev{background:var(--accbg);border-color:transparent;color:var(--acc)}
+input[type=date]{width:100%;background:var(--card);color:var(--tx);border:1px solid var(--line);border-radius:16px;padding:12px 14px;font:inherit;box-shadow:var(--sh)}
+input[type=password]{width:100%;background:var(--card);color:var(--tx);border:1px solid var(--line);border-radius:16px;padding:12px 14px;font:inherit;box-shadow:var(--sh);text-align:center;letter-spacing:.1em}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
 <div class="wrap" id="app"></div>
-<div class="tabs">
+<div class="tabs off">
   <button data-tab="today" class="on">☀️ Сьогодні</button>
   <button data-tab="week">📅 Тиждень</button>
   <button data-tab="rules">📌 Правила</button>
@@ -90,48 +95,9 @@ li{margin:5px 0}
 </div>
 
 <script>
-/* ======== ПЛАН (змінюй тут, раз на місяць, не частіше) ======== */
-const PLAN = {
-  wk: {
-    name: "Будній день",
-    items: [
-      {id:"sleep", t:"Сон за графіком", d:"Відбій 00:00, підйом 07:00 (±30 хв)", core:1, min:1},
-      {id:"nophone", t:"Перші 60 хв без телефона", d:"07:00–08:00. Вода, світло, рух. Телефон лежить далеко. Ср: вихід о 07:50", core:1},
-      {id:"move", t:"Рух", d:"Тренування: Пн 15:30–17:30 (руки), Ср одразу після пар (ноги), Пт зранку або після пар о 15:30. Інші дні: прогулянка 30+ хв", core:1, min:1},
-      {id:"b1", t:"Блок №1: найважливіша задача", d:"Пн, Чт 08:00–09:30 (вихід у PJATK о 09:30). Вт, Пт 08:00–10:00. Ср 10:15–11:45 між парами. Мінімум: 20 хв", core:1, min:1},
-      {id:"b2", t:"Блок №2", d:"90 хв у вільне вікно: Вт і Пт 11:00–12:30, Чт 14:00–15:30. Пн і Ср за бажанням. Мінімум: пропустити без провини", core:1},
-      {id:"plan", t:"Вечір: 3 головні задачі на завтра", d:"22:30, 10 хв, запиши нижче"},
-      {id:"scr", t:"Година до сну без екранів", d:"23:00–00:00. Душ, книжка, світло приглушене"}
-    ],
-    avoid: ["Без кави після 15:00","Без ігор і відео до блоку №1","Без скролінгу між блоками (відпочинок = вода, прогулянка, розтяжка)","Не відкладав задачу №1 «на потім»"],
-    rewards: ["Після блоку №1: 15 хв перерви + щось приємне (музика, кава, прогулянка)","Після обох блоків: ігри, фільми, друзі без почуття провини"]
-  },
-  sat: {
-    name: "Субота (D&D)",
-    items: [
-      {id:"sleep", t:"Сон за графіком", d:"Підйом 07:00 ±30 хв, навіть після пізнього D&D", core:1, min:1},
-      {id:"nophone", t:"Перші 60 хв без телефона", d:"07:00–08:00"},
-      {id:"move", t:"Рух", d:"Прогулянка 30 хв або зарядка до 13:00", core:1, min:1},
-      {id:"b1", t:"Один блок до виходу на D&D", d:"08:00–09:30, одна задача. Мінімум: 20 хв", core:1, min:1},
-      {id:"scr", t:"Екрани вимкнені перед сном", d:"Навіть якщо D&D затягнувся, мінімум 30 хв без телефона"}
-    ],
-    avoid: ["Без кави після 15:00","Не брати «ще один блок» увечері, D&D це твоя нагорода"],
-    rewards: ["Після блоку: до вечора і ночі D&D без жодної провини. Це частина плану, не порушення"]
-  },
-  sun: {
-    name: "Неділя (огляд)",
-    items: [
-      {id:"sleep", t:"Сон за графіком", d:"Підйом 07:00, не зсувай більш ніж на 30 хв", core:1, min:1},
-      {id:"move", t:"Рух", d:"Прогулянка 30+ хв, до обіду", core:1, min:1},
-      {id:"review", t:"Огляд тижня (20 хв)", d:"Бл. 10:00. Подивись вкладку «Тиждень»: що вийшло, що ні, що змінити (одна річ)", core:1, min:1},
-      {id:"weekplan", t:"План на наступний тиждень", d:"Бл. 18:00. Пари PJATK, Innowise, дедлайни, D&D. 3 головні цілі", core:1},
-      {id:"b1", t:"Легкий блок (за бажанням)", d:"Бл. 11:00, одна задача 60 хв, або ні"}
-    ],
-    avoid: ["Без кави після 15:00"],
-    rewards: ["Вільний вечір без плану нагород. Мінімум (сон, рух), решта твоє"]
-  }
-};
-/* ============================================================ */
+/* ======== ПЛАН зашифрований. Джерело зберігається приватно, збірка: build.js ======== */
+let PLAN=null;
+/*ENC*/const ENC={"s":"tDnK1Ev31E700fBfbvFBzw==","i":"q3BQsABlJrAHlG91","c":"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","n":250000};/*ENC*/
 
 const KEY = "ryt-v1";
 let S = load();
@@ -140,14 +106,14 @@ let cur = dk(new Date());
 
 function load(){
   try{ const s = JSON.parse(localStorage.getItem(KEY)); if(s && s.days) return s; }catch(e){}
-  return {days:{}, start: dk(new Date()), sleepT:"", wakeT:""};
+  return {days:{}, start: dk(new Date()), sleepT:"", wakeT:"", events:[]};
 }
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
 function pad(n){return String(n).padStart(2,"0")}
 function dk(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}
 function fromKey(k){return new Date(k+"T12:00:00")}
 function shift(k,n){const d=fromKey(k); d.setDate(d.getDate()+n); return dk(d)}
-function typeOf(k){const w=fromKey(k).getDay(); return w===0?"sun":w===6?"sat":"wk"}
+function typeOf(k){return ["sun","mon","tue","wed","thu","fri","sat"][fromKey(k).getDay()]}
 function rec(k){ if(!S.days[k]) S.days[k]={checks:{},min:false,e:5,m:5,f:5,rated:false,note:"",tasks:""}; return S.days[k]; }
 function status(k){ // 0 нічого, 1 мінімум виконано, 2 повний план
   const r=S.days[k]; if(!r) return 0;
@@ -187,6 +153,7 @@ function vToday(){
   h+=`<div class="card hero" style="margin-top:16px"><div class="ring ${st>0?"ok":""}"><svg viewBox="0 0 112 112"><circle class="bg" cx="56" cy="56" r="46"/><circle class="fg" cx="56" cy="56" r="46" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${(C*(1-pc/100)).toFixed(1)}"/></svg><b>${done}/${need.length}<small>виконано</small></b></div>
       <div><div class="big">${sk} 🔥</div><div class="mute">днів поспіль</div><div class="msg">${mm}</div></div></div>`;
   h+=`<div class="card"><label class="sw"><input type="checkbox" data-a="minmode" ${r.min?"checked":""}><span><b>Мінімум-режим</b><br><span class="mute">поганий день: тільки найважливіше</span></span></label></div>`;
+  h+=evToday(cur);
   if(cur===real && S.start<real && !status(y) && !status(real) && y>=S.start)
     h+=`<div class="card warn"><b>Вчора був пропуск.</b> Сьогодні не пропускай двічі. Увімкни мінімум-режим, якщо важко: 20 хв роботи, 10 хв руху, сон.</div>`;
   if(st===2) h+=`<div class="card good"><b>Повний план виконано ✅</b></div>`;
@@ -203,7 +170,7 @@ function vToday(){
       h+=`<label class="card item ${on?"done":""}" style="padding:10px 16px"><input type="checkbox" data-c="${id}" ${on?"checked":""} style="width:24px;height:24px"><div class="d" style="color:var(--tx)">${a}</div></label>`;});
   }
   h+=`<h2>Нагороди (заслужені)</h2><div class="card"><ul>${P.rewards.map(x=>`<li>${x}</li>`).join("")}</ul></div>`;
-  if(t==="wk"||t==="sun"){
+  if(t!=="sat"){
     h+=`<h2>${t==="sun"?"3 головні цілі на тиждень":"3 головні задачі на завтра"}</h2><textarea data-a="tasks" placeholder="1.\n2.\n3.">${esc(r.tasks)}</textarea>`;
   }
   h+=`<h2>Самопочуття (1–10, для експерименту)</h2><div class="card">
@@ -211,6 +178,19 @@ function vToday(){
     <div class="mute">Рухай повзунки, щоб зберегти оцінку за сьогодні.</div></div>`;
   h+=`<h2>Нотатка</h2><textarea data-a="note" placeholder="Що завадило? Що допомогло?">${esc(r.note)}</textarea>`;
   return h;
+}
+function evs(){return (S.events||[]).slice().sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:0)}
+function fd(k){return k.slice(8)+"."+k.slice(5,7)}
+function evToday(k){
+  const all=evs(), now=all.filter(e=>e.d===k), soon=all.filter(e=>e.d>k&&e.d<=shift(k,14)).slice(0,3);
+  let h=now.map(e=>`<div class="card ev"><b>📌 ${esc(e.t)}</b></div>`).join("");
+  if(soon.length) h+=`<div class="mute" style="margin:6px 4px">Найближчі: ${soon.map(e=>fd(e.d)+" — "+esc(e.t)).join(" · ")}</div>`;
+  return h;
+}
+function vEvents(real){
+  const up=evs().filter(e=>e.d>=real);
+  return `<h2>Події</h2>`+(up.length?up.map(e=>`<div class="card row between"><span><b>${fd(e.d)}</b> — ${esc(e.t)}</span><button data-a="delev" data-id="${esc(e.id)}" aria-label="Видалити">✕</button></div>`).join(""):`<div class="card mute">Подій немає. Додай тест, дедлайн чи іншу дату.</div>`)+
+  `<div class="card evf"><input type="date" id="evd" value="${real}"><input type="text" id="evt" placeholder="напр. тест по SAD"><button class="p" data-a="addev">Додати подію</button></div>`;
 }
 function sl(k,n,v){return `<div class="sl"><span>${n}</span><input type="range" min="1" max="10" value="${v}" data-s="${k}"><b id="v-${k}">${v}</b></div>`}
 
@@ -223,7 +203,7 @@ function vWeek(){
     const k=shift(ws,i), st=status(k), d=fromKey(k), r=S.days[k];
     if(st===2)full++; if(st===1)mn++;
     if(r&&r.rated){E.push(r.e);M.push(r.m);F.push(r.f);}
-    h+=`<div class="cell ${st===2?"full":st===1?"mn":""} ${k===real?"today":""}"><b>${DAYS[d.getDay()]}</b>${st===2?"✓":st===1?"мін":"·"}</div>`;
+    h+=`<div class="cell ${st===2?"full":st===1?"mn":""} ${k===real?"today":""}"><b>${DAYS[d.getDay()]}</b>${st===2?"✓":st===1?"мін":"·"}${(S.events||[]).some(e=>e.d===k)?"📌":""}</div>`;
   }
   h+=`</div>`;
   const avg=a=>a.length?(a.reduce((x,y)=>x+y,0)/a.length).toFixed(1):"–";
@@ -236,6 +216,7 @@ function vWeek(){
     for(let i=0;i<7;i++){const k=shift(s,i);const st=status(k);if(st===2)f++;if(st===1)m++;const r=S.days[k];if(r&&r.rated){e.push(r.e);mo.push(r.m);fo.push(r.f);}}
     h+=`<div class="card row between"><span>${s.slice(5).split("-").reverse().join(".")}</span><span class="mute">повний ${f} · мін ${m} · ⚡${avg(e)} 🙂${avg(mo)} 🎯${avg(fo)}</span></div>`;
   }
+  h+=vEvents(real);
   h+=`<div class="card mute">Неділя: подивись, де найчастіше ламається, і зміни <b>одну</b> річ. Не більше.</div>`;
   return h;
 }
@@ -247,7 +228,7 @@ function vRules(){
   <li><b>Ніколи не пропускай двічі поспіль.</b></li>
   <li><b>4 тижні без змін плану.</b> Потім правка однієї речі за раз.</li>
   <li><b>Раз на тиждень огляд</b> (неділя): цифри, а не відчуття.</li>
-  <li><b>Субота = D&D.</b> Це заплановано, не порушення.</li>
+  <li><b>Субота = легка.</b> Це заплановано, не порушення.</li>
   </ol></div>
   <h2>Мій графік сну</h2>
   <div class="card"><div class="sl" style="grid-template-columns:80px 1fr"><span>Відбій</span><input type="text" data-a="sleepT" value="${esc(S.sleepT)}" placeholder="напр. 23:30"></div>
@@ -262,7 +243,7 @@ function vData(){
   <div class="card">Усе зберігається <b>тільки в цьому браузері на цьому пристрої</b>. Якщо очистиш дані сайту або зміниш телефон, усе зникне. Роби експорт раз на тиждень (наприклад у неділю).<div class="mute" style="margin-top:8px">Днів у записах: ${n}. Старт: ${S.start}</div></div>
   <div class="card row" style="flex-wrap:wrap"><button class="p" data-a="export">Експорт (файл)</button>
   <label><button data-a="pick" type="button">Імпорт</button><input type="file" id="imp" accept=".json" class="hidden"></label></div>
-  <div class="card"><button data-a="reset" style="color:var(--bad)">Стерти все</button></div>`;
+  <div class="card row between" style="flex-wrap:wrap"><button data-a="lock">Заблокувати на цьому пристрої</button><button data-a="reset" style="color:var(--bad)">Стерти все</button></div>`;
 }
 
 document.addEventListener("click",e=>{
@@ -277,7 +258,11 @@ document.addEventListener("click",e=>{
     l.href=u; l.download="rhythm-"+real+".json"; l.click(); setTimeout(()=>URL.revokeObjectURL(u),1000);
   }
   else if(a==="pick"){document.getElementById("imp").click();}
-  else if(a==="reset"){ if(confirm("Точно стерти всі дані?")&&confirm("Це незворотно. Стерти?")){S={days:{},start:real,sleepT:"",wakeT:""};save();render();} }
+  else if(a==="addev"){const d=document.getElementById("evd").value, t=document.getElementById("evt").value.trim(); if(d&&t){(S.events=S.events||[]).push({id:Date.now().toString(36),d,t});save();render();}}
+  else if(a==="delev"){S.events=(S.events||[]).filter(x=>x.id!==b.dataset.id);save();render();}
+  else if(a==="unlock"){unlock();}
+  else if(a==="lock"){try{localStorage.removeItem("ryt-k")}catch(x){} location.reload();}
+  else if(a==="reset"){ if(confirm("Точно стерти всі дані?")&&confirm("Це незворотно. Стерти?")){S={days:{},start:real,sleepT:"",wakeT:"",events:[]};save();render();} }
 });
 document.addEventListener("change",e=>{
   const t=e.target;
@@ -297,7 +282,38 @@ document.addEventListener("input",e=>{
   else if(t.dataset.a==="sleepT"){S.sleepT=t.value;save();}
   else if(t.dataset.a==="wakeT"){S.wakeT=t.value;save();}
 });
-render();
+/* ---- замок: розшифрування PLAN ---- */
+const b64d=x=>Uint8Array.from(atob(x),c=>c.charCodeAt(0));
+const b64e=u=>btoa(String.fromCharCode(...new Uint8Array(u)));
+async function openPlan(key){
+  const u=b64d(ENC.c), pt=await crypto.subtle.decrypt({name:"AES-GCM",iv:b64d(ENC.i)},key,u);
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+async function unlock(){
+  const pw=document.getElementById("pw").value, rem=document.getElementById("rem").checked, msg=document.getElementById("lockmsg");
+  msg.textContent="";
+  try{
+    const base=await crypto.subtle.importKey("raw",new TextEncoder().encode(pw.trim().toLowerCase()),"PBKDF2",false,["deriveKey"]);
+    const key=await crypto.subtle.deriveKey({name:"PBKDF2",salt:b64d(ENC.s),iterations:ENC.n,hash:"SHA-256"},base,{name:"AES-GCM",length:256},true,["decrypt"]);
+    PLAN=await openPlan(key);
+    if(rem){try{localStorage.setItem("ryt-k",b64e(await crypto.subtle.exportKey("raw",key)))}catch(x){}}
+    start();
+  }catch(e){ msg.textContent="Невірна фраза"; }
+}
+function lockView(){
+  document.querySelector(".tabs").classList.add("off");
+  document.getElementById("app").innerHTML=`<div style="text-align:center;margin-top:12vh"><div style="font-size:44px">🔒</div><h1>Ритм</h1><div class="mute" style="margin-bottom:18px">Введи парольну фразу, щоб побачити свій план</div></div>
+  <div class="card evf"><input type="password" id="pw" placeholder="xxxx-xxxx-xxxx" autocomplete="current-password" autocapitalize="none" autocorrect="off">
+  <label class="sw"><input type="checkbox" id="rem" checked><span class="mute">Запам'ятати на цьому пристрої</span></label>
+  <button class="p" data-a="unlock">Відкрити</button><div id="lockmsg" style="color:var(--bad);min-height:1.2em;font-size:14px"></div></div>`;
+  document.getElementById("pw").addEventListener("keydown",e=>{if(e.key==="Enter")unlock();});
+}
+function start(){ document.querySelector(".tabs").classList.remove("off"); render(); }
+(async function boot(){
+  let k=null; try{k=localStorage.getItem("ryt-k")}catch(e){}
+  if(k){ try{ PLAN=await openPlan(await crypto.subtle.importKey("raw",b64d(k),"AES-GCM",false,["decrypt"])); start(); return; }catch(e){} }
+  lockView();
+})();
 </script>
 </body>
 </html>
