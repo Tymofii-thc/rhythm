@@ -183,8 +183,15 @@ ol.rules li::before{content:counter(r);flex:none;width:22px;font:600 22px/1.1 va
 .dots u.dn{opacity:.35}
 .two label button,.two>button{width:100%}
 button:disabled{opacity:.35}
-.nav h1{white-space:nowrap}
-.nav.cal-h h1{font-size:22px}
+.nav{flex-wrap:wrap;row-gap:var(--s2)}
+.nav h1{min-width:0}
+.cal-h h1{font-size:22px}
+.cal-h .btns{gap:6px}
+.cal-h .btns button{min-width:40px;min-height:40px}
+.cal-h .btns button.txt{padding:0 10px;font-size:13px}
+html,body{overflow-x:hidden}
+.wrap{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+@media (max-width:370px){.pair time{width:92px;font-size:14px}.pair{font-size:14px}.big{font-size:64px}.wk{grid-template-columns:90px minmax(0,1fr) 30px;gap:8px}.wk>span:first-child{font-size:13px;white-space:nowrap}}
 </style>
 </head>
 <body class="standalone">
