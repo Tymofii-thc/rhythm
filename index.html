@@ -8,6 +8,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Ритм">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
 <title>Ритм</title>
 <style>
 /* Трекер звичок — спільні стилі. Теми: :root + prefers-color-scheme (для застосунку), .app.light / .app.dark (для артбордів). */
@@ -259,6 +262,70 @@ function load(){
   return {days:{}, start: dk(new Date()), sleepT:"", wakeT:"", events:[]};
 }
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+
+/* ---- експорт, імпорт і копія перед заміною ---- */
+const BKEY="ryt-backup", EXPORT_DAYS=7, DATE_RE=/^\d{4}-\d{2}-\d{2}$/;
+const dn=n=>n%10===1&&n%100!==11?"день":(n%10>=2&&n%10<=4&&(n%100<10||n%100>=20)?"дні":"днів");
+function exportAge(){ return S.lastExport&&DATE_RE.test(S.lastExport)?Math.round((fromKey(dk(new Date()))-fromKey(S.lastExport))/864e5):null; }
+function exportNote(){
+  if(!Object.keys(S.days).length) return "";
+  const n=exportAge();
+  if(n!==null&&n<EXPORT_DAYS) return "";
+  const t=n===null?"Експорту ще не було":`Останній експорт ${n} ${dn(n)} тому`;
+  return `<div class="card"><div class="t">${t}</div><p class="mute" style="font-size:14px;margin-top:4px">Дані лише на цьому пристрої: збережи копію.</p><button class="p" data-a="export" style="width:100%;margin-top:12px">Зробити експорт</button></div>`;
+}
+function download(blob,name){
+  const u=URL.createObjectURL(blob), l=document.createElement("a");
+  l.href=u; l.download=name; l.click(); setTimeout(()=>URL.revokeObjectURL(u),1000);
+}
+async function exportData(){
+  const real=dk(new Date()), name="rhythm-"+real+".json";
+  const blob=new Blob([JSON.stringify(Object.assign({},S,{lastExport:real}),null,1)],{type:"application/json"});
+  const file=new File([blob],name,{type:"application/json"});
+  let done=false;
+  if(matchMedia("(pointer:coarse)").matches&&navigator.canShare&&navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file],title:"Ритм"}); done=true; }
+    catch(e){ if(e&&e.name==="AbortError") return; } // скасував: не вважаємо експортом
+  }
+  if(!done) download(blob,name);
+  S.lastExport=real; save(); render();
+}
+/* Перевіряє файл і повертає чистий стан; кидає виняток, якщо формат не той. */
+function sanitize(o){
+  if(!o||typeof o!=="object"||!o.days||typeof o.days!=="object"||Array.isArray(o.days)) throw 0;
+  const num=v=>{v=Math.round(+v);return v>=1&&v<=10?v:5}, str=(v,n)=>String(v==null?"":v).slice(0,n);
+  const out={days:{},start:"",sleepT:str(o.sleepT,20),wakeT:str(o.wakeT,20),events:[]};
+  for(const [k,r] of Object.entries(o.days)){
+    if(!DATE_RE.test(k)||!r||typeof r!=="object") throw 0;
+    const checks={};
+    if(r.checks&&typeof r.checks==="object") for(const [id,v] of Object.entries(r.checks)) if(/^[\w-]{1,20}$/.test(id)) checks[id]=v===true;
+    out.days[k]={checks,min:r.min===true,e:num(r.e),m:num(r.m),f:num(r.f),rated:r.rated===true,note:str(r.note,5000),tasks:str(r.tasks,5000)};
+  }
+  const keys=Object.keys(out.days).sort();
+  out.start=DATE_RE.test(o.start)?o.start:(keys[0]||dk(new Date()));
+  if(o.events!=null&&!Array.isArray(o.events)) throw 0;
+  for(const e of o.events||[]){
+    if(!e||typeof e!=="object"||!DATE_RE.test(e.d)||typeof e.t!=="string") throw 0;
+    const ev={id:str(e.id||Math.random().toString(36).slice(2,10),20),d:e.d,t:str(e.t,200)};
+    if(e.done===true) ev.done=true;
+    out.events.push(ev);
+  }
+  if(DATE_RE.test(o.lastExport)) out.lastExport=o.lastExport;
+  return out;
+}
+function summary(s){
+  const k=Object.keys(s.days).sort(), ev=(s.events||[]).length;
+  return k.length?`${k.length} ${dn(k.length)} (${k[0]} … ${k[k.length-1]}), подій: ${ev}`:`порожньо, подій: ${ev}`;
+}
+/* Зберігає поточні дані як копію. false, якщо не вдалося (тоді нічого не замінюємо). */
+function backup(){
+  if(!Object.keys(S.days).length) return true;
+  try{ localStorage.setItem(BKEY,JSON.stringify({at:new Date().toISOString(),data:S})); return true; }catch(e){ return false; }
+}
+function readBackup(){
+  try{ const b=JSON.parse(localStorage.getItem(BKEY)); if(b&&b.data&&b.data.days) return b; }catch(e){}
+  return null;
+}
 function pad(n){return String(n).padStart(2,"0")}
 function dk(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}
 function fromKey(k){return new Date(k+"T12:00:00")}
@@ -299,6 +366,7 @@ function vToday(){
   const need=items.filter(i=>r.min?i.min:i.core), done=need.filter(i=>r.checks[i.id]).length, pc=need.length?Math.round(done/need.length*100):0;
   const sk=streak();
   let h=`<div class="nav"><div><h1>${DAYSL[d.getDay()]}, ${pad(d.getDate())}.${pad(d.getMonth()+1)}</h1><span class="pill">${P.name}</span></div><div class="btns"><button data-a="prev" aria-label="Попередній день">${IC.l}</button><button data-a="next" aria-label="Наступний день" ${cur>=real?"disabled":""}>${IC.r}</button></div></div>`;
+  h+=exportNote();
   h+=`<div class="card"><div class="stat"><div class="col"><span class="big">${sk}</span><span class="mute">днів поспіль</span></div><div class="col r"><span class="mid">${done}/${need.length}</span><span class="mute">виконано</span></div></div><div class="bar ${r.min?"mn":""}" role="progressbar" aria-valuenow="${done}" aria-valuemin="0" aria-valuemax="${need.length}"><i style="width:${pc}%"></i></div></div>`;
   h+=`<div class="card"><label class="sw"><span><div class="t">Мінімум-режим</div><div class="d">Поганий день: тільки найважливіше.</div></span><input type="checkbox" role="switch" data-a="minmode" ${r.min?"checked":""}></label></div>`;
   h+=evToday(cur);
@@ -411,8 +479,9 @@ function vRules(){
 function vData(){
   const n=Object.keys(S.days).length;
   return `<h1>Дані</h1>
-  <div class="card"><p>Усе зберігається <b>тільки в цьому браузері на цьому пристрої</b>. Якщо очистиш дані сайту або зміниш телефон, усе зникне. Роби експорт раз на тиждень (наприклад у неділю).</p><p class="mute" style="margin-top:8px;font-size:14px">Днів у записах: ${n}. Старт: ${S.start}</p>
-  <div class="two" style="margin-top:16px"><button data-a="export">Експорт</button><label><button data-a="pick" type="button">Імпорт</button><input type="file" id="imp" accept=".json" class="hidden"></label></div></div>
+  <div class="card"><p>Усе зберігається <b>тільки в цьому браузері на цьому пристрої</b>. Якщо очистиш дані сайту або зміниш телефон, усе зникне. Роби експорт раз на тиждень (наприклад у неділю).</p><p class="mute" style="margin-top:8px;font-size:14px">Днів у записах: ${n}. Старт: ${S.start}. Останній експорт: ${S.lastExport||"ще не було"}.</p>
+  <div class="two" style="margin-top:16px"><button data-a="export">Експорт</button><label><button data-a="pick" type="button">Імпорт</button><input type="file" id="imp" accept=".json" class="hidden"></label></div>
+  <p class="mute" style="margin-top:8px;font-size:13px">Імпорт замінює поточні дані. Перед цим застосунок покаже, що саме зміниться, і збереже копію.</p></div>${(()=>{const b=readBackup(); return b?`<h2>Копія перед імпортом</h2><div class="card"><p>Збережено ${esc(b.at.slice(0,16).replace("T"," "))} UTC: ${esc(summary(b.data))}.</p><button data-a="restore" style="width:100%;margin-top:12px">Повернути цю копію</button></div>`:"";})()}
   <h2>Доступ</h2>
   <div class="card"><p class="mute" style="font-size:14px">Після блокування застосунок знову попросить кодову фразу.</p><button data-a="lock" style="width:100%;margin-top:12px">Заблокувати на цьому пристрої</button></div>
   <h2>Небезпечна зона</h2>
@@ -425,10 +494,12 @@ document.addEventListener("click",e=>{
   const a=b.dataset.a, real=dk(new Date());
   if(a==="prev"){cur=shift(cur,-1);render();}
   else if(a==="next"){ if(cur<real){cur=shift(cur,1);render();} }
-  else if(a==="export"){
-    const blob=new Blob([JSON.stringify(S,null,1)],{type:"application/json"});
-    const u=URL.createObjectURL(blob), l=document.createElement("a");
-    l.href=u; l.download="rhythm-"+real+".json"; l.click(); setTimeout(()=>URL.revokeObjectURL(u),1000);
+  else if(a==="export"){exportData();}
+  else if(a==="restore"){
+    const bk=readBackup(); if(!bk) return;
+    if(!confirm(`Повернути копію?\n\nКопія: ${summary(bk.data)}\nЗараз: ${summary(S)}\n\nПоточні дані стануть новою копією.`)) return;
+    if(!backup()){alert("Не вдалося зберегти поточні дані як копію. Нічого не змінено.");return;}
+    S=bk.data; save(); render();
   }
   else if(a==="pick"){document.getElementById("imp").click();}
   else if(a==="caladd"){const t=document.getElementById("calt").value.trim(); if(t){(S.events=S.events||[]).push({id:Date.now().toString(36),d:calSel,t});save();render();}}
@@ -448,8 +519,13 @@ document.addEventListener("change",e=>{
   else if(t.dataset.a==="minmode"){rec(cur).min=t.checked;save();render();}
   else if(t.id==="imp"){
     const f=t.files[0]; if(!f) return; const rd=new FileReader();
-    rd.onload=()=>{try{const o=JSON.parse(rd.result); if(!o.days) throw 0; S=o; save(); render(); alert("Імпортовано");}catch(x){alert("Файл не підходить");}};
-    rd.readAsText(f);
+    rd.onload=()=>{
+      let o; try{ o=sanitize(JSON.parse(rd.result)); }catch(x){ alert("Файл не підходить: це не експорт Ритму."); return; }
+      if(!confirm(`Замінити поточні дані?\n\nЗараз: ${summary(S)}\nУ файлі: ${summary(o)}\n\nПоточні дані збережу як копію, її можна повернути у вкладці «Дані».`)) return;
+      if(!backup()){ alert("Не вдалося зберегти копію поточних даних (мало місця?). Нічого не змінено."); return; }
+      S=o; save(); render(); alert("Імпортовано");
+    };
+    rd.readAsText(f); t.value="";
   }
 });
 document.addEventListener("input",e=>{
@@ -487,6 +563,9 @@ function lockView(){
   document.getElementById("pw").addEventListener("keydown",e=>{if(e.key==="Enter")unlock();});
 }
 function start(){ document.querySelector(".tabs").classList.remove("off"); render(); }
+/* офлайн і захист сховища від автоочищення */
+if("serviceWorker" in navigator&&/^https?:$/.test(location.protocol)) addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+try{ if(navigator.storage&&navigator.storage.persist) navigator.storage.persist().catch(()=>{}); }catch(e){}
 (async function boot(){
   let k=null; try{k=localStorage.getItem("ryt-k")}catch(e){}
   if(k){ try{ PLAN=await openPlan(await crypto.subtle.importKey("raw",b64d(k),"AES-GCM",false,["decrypt"])); start(); return; }catch(e){} }
