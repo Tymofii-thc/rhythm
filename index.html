@@ -238,6 +238,16 @@ body{position:fixed;inset:0;display:flex;flex-direction:column;min-height:0;padd
 /* панель: однаковий відступ зверху й знизу */
 .tabs{--tp:max(8px,calc(env(safe-area-inset-bottom)*.4));padding:0}
 .tabs button{min-height:0;padding:var(--tp) 0;gap:3px}
+.plist{margin-top:8px}
+.pit{display:flex;align-items:center;gap:8px;border-top:1px solid var(--line)}
+.pit:first-child{border-top:0}
+.pit .sw{flex:1}
+.dayp{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0}
+.dayp label{cursor:pointer}
+.dayp input{position:absolute;opacity:0;pointer-events:none}
+.dayp span{display:inline-flex;align-items:center;justify-content:center;min-width:40px;min-height:40px;border:1px solid var(--line);border-radius:20px;font-weight:600}
+.dayp input:checked+span{background:var(--acc);color:var(--on-acc);border-color:var(--acc)}
+.dayp input:focus-visible+span{outline:2px solid var(--acc);outline-offset:2px}
 </style>
 </head>
 <body class="standalone">
@@ -271,15 +281,20 @@ function fromKey(k){return new Date(k+"T12:00:00")}
 function shift(k,n){const d=fromKey(k); d.setDate(d.getDate()+n); return dk(d)}
 function typeOf(k){return ["sun","mon","tue","wed","thu","fri","sat"][fromKey(k).getDay()]}
 function rec(k){ if(!S.days[k]) S.days[k]={checks:{},mins:{},min:false,e:5,m:5,f:5,rated:false,note:"",tasks:""}; return S.days[k]; }
+/* Свої правки плану (S.ov) поверх зашифрованого PLAN: сховані пункти й додані */
+const ORD=["mon","tue","wed","thu","fri","sat","sun"];
+function ov(){ if(!S.ov) S.ov={hide:{},add:[]}; return S.ov; }
+function itemsT(t){ const o=ov(); return PLAN[t].items.filter(i=>!o.hide[i.id]).concat(o.add.filter(a=>a.days.includes(t))); }
+function itemsOf(k){return itemsT(typeOf(k))}
 function status(k){ // 0 нічого, 1 мінімум виконано, 2 повний план
   const r=S.days[k]; if(!r) return 0;
-  const items=PLAN[typeOf(k)].items;
-  const full=items.filter(i=>i.core).every(i=>r.checks[i.id]);
-  if(full) return 2;
-  const mn=items.filter(i=>i.min).every(i=>r.checks[i.id]);
-  return mn?1:0;
+  const items=itemsOf(k);
+  const core=items.filter(i=>i.core);
+  if(core.length && core.every(i=>r.checks[i.id])) return 2;
+  const mn=items.filter(i=>i.min);
+  return mn.length && mn.every(i=>r.checks[i.id]) ? 1 : 0;
 }
-function mainBlock(k){return PLAN[typeOf(k)].items.find(i=>i.target)}
+function mainBlock(k){return itemsOf(k).find(i=>i.target)}
 function bmins(k){const r=S.days[k]; return r&&r.mins?Object.values(r.mins).reduce((a,b)=>a+(+b||0),0):0}
 function gold(k){const b=mainBlock(k); if(!b||status(k)<1) return false; return (((S.days[k].mins||{})[b.id])||0)>=b.target}
 function streak(){
@@ -302,7 +317,7 @@ function render(){
 function vToday(){
   const t=typeOf(cur), P=PLAN[t], r=rec(cur), real=dk(new Date());
   const d=fromKey(cur);
-  const items = r.min ? P.items.filter(i=>i.min) : P.items;
+  const all_=itemsT(t), items = r.min ? all_.filter(i=>i.min) : all_;
   const st=status(cur);
   const y=shift(real,-1);
   const need=items.filter(i=>r.min?i.min:i.core), done=need.filter(i=>r.checks[i.id]).length, pc=need.length?Math.round(done/need.length*100):0;
@@ -405,6 +420,12 @@ function vWeek(){
   h+=`</div><p class="mute" style="margin-top:12px">Неділя: подивись, де найчастіше ламається, і зміни <b>одну</b> річ. Не більше.</p>`;
   return h;
 }
+function planEd(){
+  const o=ov(), g={};
+  ORD.forEach(t=>{ PLAN[t].items.concat(o.add.filter(a=>a.days.includes(t))).forEach(i=>{ (g[i.id]=g[i.id]||{i,d:[]}).d.push(DAYS[(ORD.indexOf(t)+1)%7]); }); });
+  return `<div class="plist">`+Object.values(g).map(x=>{const cu=o.add.some(a=>a.id===x.i.id);
+    return `<div class="pit"><label class="sw"><span><div class="t">${String(x.i.t).replace(/<[^>]*>/g,"")}</div><div class="d">${x.d.join(", ")}${x.i.core?"":" · не обов'язково"}</div></span><input type="checkbox" role="switch" data-hid="${esc(x.i.id)}" ${o.hide[x.i.id]?"":"checked"}></label>${cu?`<button data-a="delit" data-id="${esc(x.i.id)}" aria-label="Видалити пункт">${IC.x}</button>`:""}</div>`;}).join("")+`</div>`;
+}
 function vRules(){
   return `<h1>Правила</h1>
   <div class="card"><ol class="rules">
@@ -414,6 +435,14 @@ function vRules(){
   <li><span><b>Раз на тиждень огляд</b> (неділя): цифри, а не відчуття.</span></li>
   <li><span><b>Субота = легка.</b> Це заплановано, не порушення.</span></li>
   </ol></div>
+  <h2>Мій план</h2>
+  <div class="card"><p class="mute" style="font-size:14px">Вимкни пункт, і він не рахуватиметься для серії (минулі дні теж). Дані не стираються.</p>${planEd()}</div>
+  <h2>Додати пункт</h2>
+  <div class="card"><label class="f" for="nit">Назва</label><input id="nit" type="text" placeholder="напр. Читання">
+  <div class="dayp">${ORD.map(t=>`<label><input type="checkbox" class="ndy" value="${t}" checked><span>${DAYS[(ORD.indexOf(t)+1)%7]}</span></label>`).join("")}</div>
+  <label class="sw"><span><div class="t">Входить у мінімум</div></span><input type="checkbox" id="nmin" role="switch"></label>
+  <label class="sw"><span><div class="t">Рахувати хвилини</div></span><input type="checkbox" id="nms" role="switch" checked></label>
+  <button class="p" data-a="addit" style="width:100%;margin-top:12px">Додати</button></div>
   <h2>Мій графік сну</h2>
   <div class="card"><div class="two"><div><label class="f" for="bed">Відбій</label><input id="bed" type="text" data-a="sleepT" value="${esc(S.sleepT)}" placeholder="напр. 00:00" inputmode="numeric"></div>
   <div><label class="f" for="wake">Підйом</label><input id="wake" type="text" data-a="wakeT" value="${esc(S.wakeT)}" placeholder="напр. 07:00" inputmode="numeric"></div></div></div>
@@ -449,6 +478,13 @@ document.addEventListener("click",e=>{
   else if(a==="calday"){calSel=b.dataset.k; render();}
   else if(a==="calopen"){cur=calSel; tab="today"; render(); document.getElementById("app").scrollTop=0;}
   else if(a==="delev"){S.events=(S.events||[]).filter(x=>x.id!==b.dataset.id);save();render();}
+  else if(a==="addit"){
+    const t=document.getElementById("nit").value.trim(), days=[...document.querySelectorAll(".ndy:checked")].map(x=>x.value);
+    if(!t||!days.length){alert("Вкажи назву й хоч один день");return;}
+    ov().add.push({id:"u"+Date.now().toString(36),t:esc(t),days,core:true,min:document.getElementById("nmin").checked,mins:document.getElementById("nms").checked});
+    save();render();
+  }
+  else if(a==="delit"){const o=ov(); o.add=o.add.filter(x=>x.id!==b.dataset.id); delete o.hide[b.dataset.id]; save();render();}
   else if(a==="unlock"){unlock();}
   else if(a==="lock"){try{localStorage.removeItem("ryt-k")}catch(x){} location.reload();}
   else if(a==="reset"){ if(confirm("Точно стерти всі дані?")&&confirm("Це незворотно. Стерти?")){S={days:{},start:real,sleepT:"",wakeT:"",events:[]};save();render();} }
@@ -456,7 +492,8 @@ document.addEventListener("click",e=>{
 document.addEventListener("change",e=>{
   const t=e.target;
   if(t.dataset.c){rec(cur).checks[t.dataset.c]=t.checked;save();render();}
-  else if(t.dataset.m){const r=rec(cur); r.mins=r.mins||{}; const v=Math.max(0,Math.min(600,Math.round(+t.value||0))); if(v)r.mins[t.dataset.m]=v; else delete r.mins[t.dataset.m]; const it=PLAN[typeOf(cur)].items.find(x=>x.id===t.dataset.m); if(v>=20&&it&&!r.checks[it.id])r.checks[it.id]=true; save();render();}
+  else if(t.dataset.m){const r=rec(cur); r.mins=r.mins||{}; const v=Math.max(0,Math.min(600,Math.round(+t.value||0))); if(v)r.mins[t.dataset.m]=v; else delete r.mins[t.dataset.m]; const it=itemsOf(cur).find(x=>x.id===t.dataset.m); if(v>=20&&it&&!r.checks[it.id])r.checks[it.id]=true; save();render();}
+  else if(t.dataset.hid){const o=ov(); if(t.checked) delete o.hide[t.dataset.hid]; else o.hide[t.dataset.hid]=true; save();render();}
   else if(t.dataset.ev){const e=(S.events||[]).find(x=>x.id===t.dataset.ev); if(e){e.done=t.checked;save();render();}}
   else if(t.dataset.a==="minmode"){rec(cur).min=t.checked;save();render();}
   else if(t.id==="imp"){
