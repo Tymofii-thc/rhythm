@@ -243,7 +243,7 @@ body{position:fixed;inset:0;display:flex;flex-direction:column;min-height:0;padd
 .pit:first-child{border-top:0}
 .pit .sw{flex:1}
 .dayp{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0}
-.dayp label{cursor:pointer}
+.dayp label{cursor:pointer;position:relative}
 .dayp input{position:absolute;opacity:0;pointer-events:none}
 .dayp span{display:inline-flex;align-items:center;justify-content:center;min-width:40px;min-height:40px;border:1px solid var(--line);border-radius:20px;font-weight:600}
 .dayp input:checked+span{background:var(--acc);color:var(--on-acc);border-color:var(--acc)}
@@ -293,7 +293,15 @@ function rec(k){ if(!S.days[k]) S.days[k]={checks:{},mins:{},min:false,e:5,m:5,f
 const ORD=["mon","tue","wed","thu","fri","sat","sun"];
 function ov(){ if(!S.ov) S.ov={hide:{},add:[]}; return S.ov; }
 const FB={id:"fb",t:"Блок уваги",d:"Хоча б один блок від 10 хв",core:true,min:true};
-function itemsT(t,k){ const o=ov(), f=(k&&S.focusFrom&&k>=S.focusFrom)?[FB]:[]; return f.concat(PLAN[t].items).filter(i=>!o.hide[i.id]).concat(o.add.filter(a=>a.days.includes(t))); }
+const SLP=/відбій|сон\b|спати|засин/i, plain=x=>String(x).replace(/<[^>]*>/g,"");
+function sortO(list){ const o=ov(); if(!o.order) return list;
+  const ix=i=>{ if(i.id==="fb") return -1; const n=o.order.indexOf(i.id); return n<0?1e9:n; };
+  return list.map((x,j)=>[x,j]).sort((a,b)=>ix(a[0])-ix(b[0])||a[1]-b[1]).map(x=>x[0]); }
+function itemsT(t,k){ const o=ov(), f=(k&&S.focusFrom&&k>=S.focusFrom)?[FB]:[];
+  const pl=PLAN[t].items, cu=o.add.filter(a=>a.days.includes(t)); let list;
+  if(o.order) list=pl.concat(cu);
+  else { const si=pl.findIndex(i=>SLP.test(plain(i.t))); list=si<0?pl.concat(cu):pl.slice(0,si).concat(cu,pl.slice(si)); }
+  return sortO(f.concat(list)).filter(i=>!o.hide[i.id]); }
 function itemsOf(k){return itemsT(typeOf(k),k)}
 function fmin(k){const r=S.days[k]; return r&&r.bl?r.bl.reduce((a,b)=>a+b.m,0):0}
 function fmt(sec){return pad(Math.floor(sec/60))+":"+pad(sec%60)}
@@ -340,7 +348,7 @@ function streak(){
   while(status(k)>0 && k>=S.start){ n++; k=shift(k,-1); }
   return n;
 }
-const IC={l:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>',r:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',x:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>'};
+const IC={l:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>',r:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',u:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>',d:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>',x:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>'};
 const DAYS=["Нд","Пн","Вт","Ср","Чт","Пт","Сб"];
 const DAYSL=["Неділя","Понеділок","Вівторок","Середа","Четвер","П'ятниця","Субота"];
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
@@ -462,11 +470,18 @@ function vWeek(){
   h+=`</div><p class="mute" style="margin-top:12px">Неділя: подивись, де найчастіше ламається, і зміни <b>одну</b> річ. Не більше.</p>`;
   return h;
 }
-function planEd(){
+function planGroups(){
   const o=ov(), g={};
-  ORD.forEach(t=>{ PLAN[t].items.concat(o.add.filter(a=>a.days.includes(t))).forEach(i=>{ (g[i.id]=g[i.id]||{i,d:[]}).d.push(DAYS[(ORD.indexOf(t)+1)%7]); }); });
-  return `<div class="plist">`+Object.values(g).map(x=>{const cu=o.add.some(a=>a.id===x.i.id);
-    return `<div class="pit"><label class="sw"><span><div class="t">${String(x.i.t).replace(/<[^>]*>/g,"")}</div><div class="d">${x.d.join(", ")}${x.i.core?"":" · не обов'язково"}</div></span><input type="checkbox" role="switch" data-hid="${esc(x.i.id)}" ${o.hide[x.i.id]?"":"checked"}></label>${cu?`<button data-a="delit" data-id="${esc(x.i.id)}" aria-label="Видалити пункт">${IC.x}</button>`:""}</div>`;}).join("")+`</div>`;
+  ORD.forEach(t=>{ PLAN[t].items.concat(o.add.filter(a=>a.days.includes(t))).forEach(i=>{ (g[i.id]=g[i.id]||{i,id:i.id,d:[]}).d.push(DAYS[(ORD.indexOf(t)+1)%7]); }); });
+  let arr=Object.values(g);
+  if(o.order) return sortO(arr);
+  const cu=arr.filter(x=>o.add.some(a=>a.id===x.id)), pl=arr.filter(x=>!cu.includes(x)), si=pl.findIndex(x=>SLP.test(plain(x.i.t)));
+  return si<0?pl.concat(cu):pl.slice(0,si).concat(cu,pl.slice(si));
+}
+function planEd(){
+  const o=ov();
+  return `<div class="plist">`+planGroups().map(x=>{const cu=o.add.some(a=>a.id===x.i.id);
+    return `<div class="pit"><label class="sw"><span><div class="t">${plain(x.i.t)}</div><div class="d">${x.d.join(", ")}${x.i.core?"":" · не обов'язково"}</div></span><input type="checkbox" role="switch" data-hid="${esc(x.i.id)}" ${o.hide[x.i.id]?"":"checked"}></label><button data-a="up" data-id="${esc(x.i.id)}" aria-label="Вище">${IC.u}</button><button data-a="dn" data-id="${esc(x.i.id)}" aria-label="Нижче">${IC.d}</button>${cu?`<button data-a="delit" data-id="${esc(x.i.id)}" aria-label="Видалити пункт">${IC.x}</button>`:""}</div>`;}).join("")+`</div>`;
 }
 function vRules(){
   return `<h1>Правила</h1>
@@ -524,8 +539,10 @@ document.addEventListener("click",e=>{
     const t=document.getElementById("nit").value.trim(), days=[...document.querySelectorAll(".ndy:checked")].map(x=>x.value);
     if(!t||!days.length){alert("Вкажи назву й хоч один день");return;}
     ov().add.push({id:"u"+Date.now().toString(36),t:esc(t),days,core:true,min:document.getElementById("nmin").checked,mins:document.getElementById("nms").checked});
+    const o=ov(); if(o.order){ const id=o.add[o.add.length-1].id, arr=planGroups().map(x=>x.id).filter(x=>x!==id), si=arr.findIndex(x=>{const g=planGroups().find(y=>y.id===x);return SLP.test(plain(g.i.t));}); arr.splice(si<0?arr.length:si,0,id); o.order=arr; }
     save();render();
   }
+  else if(a==="up"||a==="dn"){const arr=planGroups().map(x=>x.id), i=arr.indexOf(b.dataset.id), j=i+(a==="up"?-1:1); if(i>=0&&j>=0&&j<arr.length){[arr[i],arr[j]]=[arr[j],arr[i]]; ov().order=arr; save(); render();}}
   else if(a==="delit"){const o=ov(); o.add=o.add.filter(x=>x.id!==b.dataset.id); delete o.hide[b.dataset.id]; save();render();}
   else if(a==="len"){S.len=+b.dataset.v;save();render();}
   else if(a==="bstart"){S.timer={s:Date.now(),len:S.len||25,dr:0};save();render();}
