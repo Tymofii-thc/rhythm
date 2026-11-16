@@ -248,6 +248,14 @@ body{position:fixed;inset:0;display:flex;flex-direction:column;min-height:0;padd
 .dayp span{display:inline-flex;align-items:center;justify-content:center;min-width:40px;min-height:40px;border:1px solid var(--line);border-radius:20px;font-weight:600}
 .dayp input:checked+span{background:var(--acc);color:var(--on-acc);border-color:var(--acc)}
 .dayp input:focus-visible+span{outline:2px solid var(--acc);outline-offset:2px}
+.chips{display:flex;gap:8px}
+.chips button{flex:1}
+.chips button.on{background:var(--acc);color:var(--on-acc);border-color:var(--acc)}
+.tmr{font:700 56px var(--sans);text-align:center;font-variant-numeric:tabular-nums;margin:8px 0 16px}
+.bls{margin-top:12px}
+.bl{display:flex;gap:12px;justify-content:space-between;font-size:14px;color:var(--mute);padding:8px 0;border-top:1px solid var(--line)}
+.bl b{color:var(--ink)}
+details.more summary{cursor:pointer;font-weight:600;padding:16px 0;color:var(--mute);min-height:var(--tap)}
 </style>
 </head>
 <body class="standalone">
@@ -284,8 +292,37 @@ function rec(k){ if(!S.days[k]) S.days[k]={checks:{},mins:{},min:false,e:5,m:5,f
 /* Свої правки плану (S.ov) поверх зашифрованого PLAN: сховані пункти й додані */
 const ORD=["mon","tue","wed","thu","fri","sat","sun"];
 function ov(){ if(!S.ov) S.ov={hide:{},add:[]}; return S.ov; }
-function itemsT(t){ const o=ov(); return PLAN[t].items.filter(i=>!o.hide[i.id]).concat(o.add.filter(a=>a.days.includes(t))); }
-function itemsOf(k){return itemsT(typeOf(k))}
+const FB={id:"fb",t:"Блок уваги",d:"Хоча б один блок від 10 хв",core:true,min:true};
+function itemsT(t,k){ const o=ov(), f=(k&&S.focusFrom&&k>=S.focusFrom)?[FB]:[]; return f.concat(PLAN[t].items).filter(i=>!o.hide[i.id]).concat(o.add.filter(a=>a.days.includes(t))); }
+function itemsOf(k){return itemsT(typeOf(k),k)}
+function fmin(k){const r=S.days[k]; return r&&r.bl?r.bl.reduce((a,b)=>a+b.m,0):0}
+function fmt(sec){return pad(Math.floor(sec/60))+":"+pad(sec%60)}
+function beep(){try{const c=new AudioContext(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);g.gain.value=.15;o.frequency.value=660;o.start();o.stop(c.currentTime+.4);}catch(e){} try{navigator.vibrate&&navigator.vibrate([200,100,200])}catch(e){}}
+function seedOnce(){
+  if(S.seeded) return; const o=ov();
+  ORD.forEach(t=>PLAN[t].items.forEach(i=>{ if(/зал|gym/i.test(String(i.t).replace(/<[^>]*>/g,""))) o.hide[i.id]=true; }));
+  if(!o.add.some(a=>a.id==="u-read")) o.add.push({id:"u-read",t:"Читання",days:ORD.slice(),core:true,min:false,mins:true},{id:"u-walk",t:"Прогулянка без телефону",days:ORD.slice(),core:true,min:false});
+  S.focusFrom=dk(new Date()); S.seeded=1; save();
+}
+function vFocus(k,real){
+  const r=S.days[k], bl=(r&&r.bl)||[]; let T=S.timer;
+  let h=`<div class="card focus"><h2>Блок уваги</h2>`;
+  if(k===real){
+    if(T&&!T.fin&&Date.now()-T.s>=T.len*60000){T.fin=true;T.m=T.len;save();}
+    if(!T){ const L=S.len||25;
+      h+=`<div class="chips">${[15,25,40].map(n=>`<button data-a="len" data-v="${n}" class="${n===L?"on":""}">${n} хв</button>`).join("")}</div><p class="mute" style="font-size:13px;margin-top:8px">Телефон в іншу кімнату. Відволікся — натисни кнопку й повертайся.</p><button class="p" data-a="bstart" style="width:100%;margin-top:12px">Почати</button>`;
+    } else if(T.fin){
+      h+=`<p><b>${T.m} хв</b>, відволікань: <b>${T.dr}</b></p><p class="mute" style="margin-top:8px">Чи можеш переказати прочитане/вивчене одним реченням?</p><div class="two" style="margin-top:12px"><button class="p" data-a="bq" data-v="y">Так</button><button data-a="bq" data-v="p">Частково</button></div><button data-a="bq" data-v="n" style="width:100%;margin-top:8px">Ні</button>`;
+    } else {
+      const rem=Math.max(0,T.len*60-Math.floor((Date.now()-T.s)/1000));
+      h+=`<div class="tmr" id="tmr">${fmt(rem)}</div><button class="p" data-a="drift" style="width:100%">Відволікся · <span id="drc">${T.dr}</span></button><div class="two" style="margin-top:8px"><button data-a="bend">Завершити</button><button data-a="bcancel">Скасувати</button></div>`;
+    }
+  }
+  if(bl.length) h+=`<div class="bls">${bl.map(b=>`<div class="bl"><b>${b.m} хв</b><span>відволікань: ${b.dr}</span><span>${b.q==="y"?"перекажу":b.q==="p"?"частково":"не перекажу"}</span></div>`).join("")}</div><p class="mute" style="font-size:13px;margin-top:8px">Усього сьогодні: <b>${fmin(k)} хв</b> у фокусі.</p>`;
+  else if(k!==real) h+=`<p class="mute">Блоків не було.</p>`;
+  h+=`</div>`;
+  return h;
+}
 function status(k){ // 0 нічого, 1 мінімум виконано, 2 повний план
   const r=S.days[k]; if(!r) return 0;
   const items=itemsOf(k);
@@ -317,12 +354,13 @@ function render(){
 function vToday(){
   const t=typeOf(cur), P=PLAN[t], r=rec(cur), real=dk(new Date());
   const d=fromKey(cur);
-  const all_=itemsT(t), items = r.min ? all_.filter(i=>i.min) : all_;
+  const all_=itemsT(t,cur), items = r.min ? all_.filter(i=>i.min) : all_;
   const st=status(cur);
   const y=shift(real,-1);
   const need=items.filter(i=>r.min?i.min:i.core), done=need.filter(i=>r.checks[i.id]).length, pc=need.length?Math.round(done/need.length*100):0;
   const sk=streak();
   let h=`<div class="nav"><div><h1>${DAYSL[d.getDay()]}, ${pad(d.getDate())}.${pad(d.getMonth()+1)}</h1><span class="pill">${P.name}</span></div><div class="btns"><button data-a="prev" aria-label="Попередній день">${IC.l}</button><button data-a="next" aria-label="Наступний день" ${cur>=real?"disabled":""}>${IC.r}</button></div></div>`;
+  h+=vFocus(cur,real);
   h+=`<div class="card"><div class="stat"><div class="col"><span class="big">${sk}</span><span class="mute">днів поспіль</span></div><div class="col r"><span class="mid">${done}/${need.length}</span><span class="mute">виконано</span></div></div><div class="bar ${r.min?"mn":""}" role="progressbar" aria-valuenow="${done}" aria-valuemin="0" aria-valuemax="${need.length}"><i style="width:${pc}%"></i></div></div>`;
   h+=`<div class="card"><label class="sw"><span><div class="t">Мінімум-режим</div><div class="d">Поганий день: тільки найважливіше.</div></span><input type="checkbox" role="switch" data-a="minmode" ${r.min?"checked":""}></label></div>`;
   h+=evToday(cur);
@@ -338,6 +376,8 @@ function vToday(){
     h+=`<label class="item ${on?"done":""}"><input type="checkbox" data-c="${i.id}" ${on?"checked":""}><div><div class="t">${i.t}${i.min&&!r.min?'<span class="tag">мін.</span>':""}</div>${i.d?`<div class="d">${i.d}</div>`:""}${(i.target||i.mins)?`<div class="mrow"><input type="number" inputmode="numeric" min="0" max="600" step="5" data-m="${i.id}" value="${((r.mins||{})[i.id])||""}" placeholder="0" aria-label="Хвилин: ${esc(i.t)}"><span>хв${i.target?" · ціль "+i.target:""}</span></div>`:""}</div></label>`;
   });
   h+=`</div>`;
+  h+=`<details class="more"><summary>Додатково</summary>`;
+  h+=`<h2>Хвилин у стрічках (екранний час)</h2><div class="card"><div class="mrow" style="margin-top:0"><input type="number" inputmode="numeric" min="0" max="1440" step="5" data-a="feed" value="${r.feed||""}" placeholder="0" aria-label="Хвилин у стрічках"><span>хв за день</span></div></div>`;
   if(!r.min){
     h+=`<h2>Чого не робив (відміть, якщо дотримався)</h2><div class="card flush">`;
     P.avoid.forEach((a,idx)=>{const id="av"+idx;const on=!!r.checks[id];
@@ -349,7 +389,7 @@ function vToday(){
     h+=`<h2>${t==="sun"?"3 головні цілі на тиждень":"3 головні задачі на завтра"}</h2><textarea data-a="tasks" aria-label="Задачі" placeholder="1.\n2.\n3.">${esc(r.tasks)}</textarea>`;
   }
   h+=`<h2>Самопочуття (1–10)</h2><div class="card">${sl("e","Енергія",r.e)}${sl("m","Настрій",r.m)}${sl("f","Фокус",r.f)}<p class="mute" style="font-size:13px;margin-top:6px">Рухай повзунки, щоб зберегти оцінку за сьогодні.</p></div>`;
-  h+=`<h2>Нотатка</h2><textarea data-a="note" aria-label="Нотатка" placeholder="Що завадило? Що допомогло?">${esc(r.note)}</textarea>`;
+  h+=`<h2>Нотатка</h2><textarea data-a="note" aria-label="Нотатка" placeholder="Що відвернуло? Що допомогло?">${esc(r.note)}</textarea></details>`;
   return h;
 }
 function evs(){return (S.events||[]).slice().sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:0)}
@@ -398,16 +438,18 @@ function weekStart(k){const d=fromKey(k); const w=(d.getDay()+6)%7; d.setDate(d.
 function vWeek(){
   const real=dk(new Date()); const ws=weekStart(real), we=shift(ws,6);
   const avg=a=>a.length?(a.reduce((x,y)=>x+y,0)/a.length).toFixed(1):"–";
-  let full=0,mn=0,miss=0,gd=0,tot=0,E=[],M=[],F=[],cells="";
+  let full=0,mn=0,miss=0,gd=0,tot=0,E=[],M=[],F=[],cells="",FM=0,BN=0,DR=0,QY=0,FD=[];
   for(let i=0;i<7;i++){
     const k=shift(ws,i), st=status(k), d=fromKey(k), r=S.days[k];
     if(st===2)full++; else if(st===1)mn++; else if(k<real&&k>=S.start)miss++;
-    const g=gold(k); if(g)gd++; tot+=bmins(k);
+    const g=gold(k); if(g)gd++; tot+=bmins(k); FM+=fmin(k);
+    if(r&&r.bl) r.bl.forEach(b=>{BN++;DR+=b.dr;if(b.q==="y")QY++;}); if(r&&r.feed) FD.push(r.feed);
     if(r&&r.rated){E.push(r.e);M.push(r.m);F.push(r.f);}
     cells+=`<div class="cell ${st===2?"full":st===1?"mn":""} ${g?"gold":""} ${k===real?"today":""}"><span>${DAYS[d.getDay()]}</span><b>${d.getDate()}</b></div>`;
   }
   let h=`<div class="nav"><div><h1>Тиждень</h1><span class="pill">${fd(ws)}–${fd(we)}</span></div></div>
   <div class="card"><div class="grid">${cells}</div><div class="legend"><span><i class="f"></i>Повний план</span><span><i class="m"></i>Мінімум</span><span><i></i>Нічого</span><span><i class="g"></i>Ціль</span></div></div>
+  <h2>Увага</h2><div class="card"><div class="avg"><div class="col"><span class="mid">${FM}</span><span class="mute">хв у фокусі</span></div><div class="col"><span class="mid">${BN}</span><span class="mute">блоків</span></div><div class="col"><span class="mid">${BN?(DR/BN).toFixed(1):"–"}</span><span class="mute">відволік. / блок</span></div><div class="col"><span class="mid">${BN?Math.round(QY/BN*100)+"%":"–"}</span><span class="mute">можу переказати</span></div></div>${FD.length?`<p class="mute" style="font-size:13px;margin-top:8px">Стрічки: у середньому ${Math.round(FD.reduce((a,b)=>a+b,0)/FD.length)} хв за день.</p>`:""}</div>
   <h2>Звичка і ріст</h2><div class="card"><div class="avg"><div class="col"><span class="mid">${full+mn}/7</span><span class="mute">днів із підлогою</span></div><div class="col"><span class="mid">${tot}</span><span class="mute">хв глибокої роботи</span></div><div class="col"><span class="mid">${gd}</span><span class="mute">днів до цілі</span></div></div></div>
   <h2>Підсумок тижня</h2><div class="card"><div class="avg"><div class="col"><span class="mid">${full}</span><span class="mute">повних</span></div><div class="col"><span class="mid">${mn}</span><span class="mute">мінімум</span></div><div class="col"><span class="mid">${miss}</span><span class="mute">пропусків</span></div></div></div>
   <div class="card"><h2>Середнє за тиждень</h2><div class="avg"><div class="col"><span class="mid">${avg(E)}</span><span class="mute">енергія</span></div><div class="col"><span class="mid">${avg(M)}</span><span class="mute">настрій</span></div><div class="col"><span class="mid">${avg(F)}</span><span class="mute">фокус</span></div></div></div>
@@ -485,6 +527,12 @@ document.addEventListener("click",e=>{
     save();render();
   }
   else if(a==="delit"){const o=ov(); o.add=o.add.filter(x=>x.id!==b.dataset.id); delete o.hide[b.dataset.id]; save();render();}
+  else if(a==="len"){S.len=+b.dataset.v;save();render();}
+  else if(a==="bstart"){S.timer={s:Date.now(),len:S.len||25,dr:0};save();render();}
+  else if(a==="drift"){if(S.timer&&!S.timer.fin){S.timer.dr++;save();const c=document.getElementById("drc");if(c)c.textContent=S.timer.dr;}}
+  else if(a==="bend"){const T=S.timer; if(T&&!T.fin){T.m=Math.max(1,Math.min(T.len,Math.round((Date.now()-T.s)/60000)));T.fin=true;save();render();}}
+  else if(a==="bcancel"){if(confirm("Скасувати блок?")){S.timer=null;save();render();}}
+  else if(a==="bq"){const T=S.timer; if(T&&T.fin){const k=dk(new Date(T.s)), r=rec(k); (r.bl=r.bl||[]).push({m:T.m,dr:T.dr,q:b.dataset.v}); if(T.m>=10) r.checks.fb=true; S.timer=null; save(); render();}}
   else if(a==="unlock"){unlock();}
   else if(a==="lock"){try{localStorage.removeItem("ryt-k")}catch(x){} location.reload();}
   else if(a==="reset"){ if(confirm("Точно стерти всі дані?")&&confirm("Це незворотно. Стерти?")){S={days:{},start:real,sleepT:"",wakeT:"",events:[]};save();render();} }
@@ -505,11 +553,15 @@ document.addEventListener("change",e=>{
 document.addEventListener("input",e=>{
   const t=e.target;
   if(t.dataset.s){const r=rec(cur);r[t.dataset.s]=+t.value;r.rated=true;document.getElementById("v-"+t.dataset.s).textContent=t.value;save();}
+  else if(t.dataset.a==="feed"){rec(cur).feed=Math.max(0,Math.round(+t.value||0));save();}
   else if(t.dataset.a==="note"){rec(cur).note=t.value;save();}
   else if(t.dataset.a==="tasks"){rec(cur).tasks=t.value;save();}
   else if(t.dataset.a==="sleepT"){S.sleepT=t.value;save();}
   else if(t.dataset.a==="wakeT"){S.wakeT=t.value;save();}
 });
+setInterval(()=>{const T=S.timer,e=document.getElementById("tmr"); if(!e||!T||T.fin) return;
+  const rem=T.len*60-Math.floor((Date.now()-T.s)/1000);
+  if(rem<=0){T.fin=true;T.m=T.len;save();beep();render();} else e.textContent=fmt(rem);},1000);
 /* ---- замок: розшифрування PLAN ---- */
 const b64d=x=>Uint8Array.from(atob(x),c=>c.charCodeAt(0));
 const b64e=u=>btoa(String.fromCharCode(...new Uint8Array(u)));
@@ -536,7 +588,7 @@ function lockView(){
   <button class="p" data-a="unlock" style="width:100%;margin-top:16px">Відкрити</button></div>`;
   document.getElementById("pw").addEventListener("keydown",e=>{if(e.key==="Enter")unlock();});
 }
-function start(){ document.querySelector(".tabs").classList.remove("off"); render(); }
+function start(){ seedOnce(); document.querySelector(".tabs").classList.remove("off"); render(); }
 (async function boot(){
   let k=null; try{k=localStorage.getItem("ryt-k")}catch(e){}
   if(k){ try{ PLAN=await openPlan(await crypto.subtle.importKey("raw",b64d(k),"AES-GCM",false,["decrypt"])); start(); return; }catch(e){} }
